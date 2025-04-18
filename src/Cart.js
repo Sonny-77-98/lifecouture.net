@@ -20,7 +20,9 @@ function Cart({ cart, setCart }) {
             <div className="cart-item-details">
               <h3 className="cart-item-title">{item.prodTitle}</h3>
               <p className="cart-item-description">{item.prodDesc}</p>
-              <button className="remove-btn" onClick={() => removeFromCart(index)}>Remove</button>
+              <button className="remove-btn" onClick={() => removeFromCart(index)}>
+                Remove
+              </button>
             </div>
           </div>
         ))

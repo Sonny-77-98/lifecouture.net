@@ -1,8 +1,7 @@
 const express = require('express');
 const router = express.Router();
-const { Order } = require('../models');  // Adjust the path based on your models directory
+const { Order } = require('../models');
 
-// POST request to handle placing an order
 router.post('/api/checkout', async (req, res) => {
   const { userID, items, totalAmount, name, email, phone, address } = req.body;
 
@@ -11,19 +10,18 @@ router.post('/api/checkout', async (req, res) => {
   }
 
   try {
-    // Create the order in the database (using an ORM like Sequelize or Mongoose)
     const order = await Order.create({
-      userId: userID, // Assuming you have a user table and you're using the user's ID
-      items: items,   // Store items (can be serialized as JSON)
+      userId: userID,
+      items: items,
       totalAmount: totalAmount,
       customerName: name,
       customerEmail: email,
       customerPhone: phone,
       shippingAddress: address,
-      status: 'pending', // Set the order status (optional)
+      status: 'pending',
     });
 
-    res.status(200).json(order);  // Send the created order back as a response
+    res.status(200).json(order);
   } catch (error) {
     console.error('Error placing order:', error);
     res.status(500).json({ error: 'Error placing order' });

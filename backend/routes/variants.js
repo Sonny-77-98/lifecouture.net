@@ -1,8 +1,8 @@
-
 const express = require('express');
 const router = express.Router();
 const { query, pool } = require('../config/db');
 
+// Get all variants with product title
 router.get('/', async (req, res) => {
   try {
     const variants = await query(`
@@ -17,6 +17,27 @@ router.get('/', async (req, res) => {
   }
 });
 
+// Get variants by product ID
+router.get('/product/:productId', async (req, res) => {
+  try {
+    const productId = req.params.productId;
+    const variants = await query(
+      'SELECT * FROM ProductVariants WHERE prodID = ?',
+      [productId]
+    );
+    
+    if (variants.length === 0) {
+      return res.status(404).json({ message: 'No variants found for this product.' });
+    }
+
+    res.json(variants);
+  } catch (error) {
+    console.error('Error fetching variants for product:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get a single variant by varID
 router.get('/:id', async (req, res) => {
   try {
     const variant = await query('SELECT * FROM ProductVariants WHERE varID = ?', [req.params.id]);
@@ -30,13 +51,14 @@ router.get('/:id', async (req, res) => {
   }
 });
 
+// Create a new variant
 router.post('/', async (req, res) => {
   let connection;
   try {
     const { varSKU, varBCode, prodID, varPrice } = req.body;
-    
+
     if (!varSKU || !prodID) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         message: 'Variant SKU and product ID are required',
         details: { varSKU, prodID }
       });
@@ -49,16 +71,16 @@ router.post('/', async (req, res) => {
       'INSERT INTO ProductVariants (varSKU, varBCode, prodID, varPrice) VALUES (?, ?, ?, ?)',
       [varSKU, varBCode, prodID, varPrice || 83.54]
     );
-    
+
     const variantId = result.insertId;
 
     await connection.execute(
       'INSERT INTO Inventory (invQty, InvLowStockThreshold, varID) VALUES (?, ?, ?)',
       [0, 5, variantId]
     );
-    
+
     await connection.commit();
-    
+
     res.status(201).json({
       message: 'Variant created successfully',
       variantId: variantId,
@@ -71,42 +93,33 @@ router.post('/', async (req, res) => {
       }
     });
   } catch (error) {
-    if (connection) {
-      await connection.rollback();
-    }
-    
+    if (connection) await connection.rollback();
     console.error('Error creating variant:', error);
-    
-    res.status(500).json({ 
-      message: 'Failed to create variant',
-      error: error.message,
-      code: error.code
-    });
+    res.status(500).json({ message: 'Failed to create variant', error: error.message, code: error.code });
   } finally {
-    if (connection) {
-      connection.release();
-    }
+    if (connection) connection.release();
   }
 });
 
+// Update an existing variant
 router.put('/:id', async (req, res) => {
   try {
     const { varSKU, varBCode, prodID, varPrice } = req.body;
-    
+
     if (!varSKU) {
       return res.status(400).json({ message: 'Variant SKU is required' });
     }
-    
+
     const variant = await query('SELECT * FROM ProductVariants WHERE varID = ?', [req.params.id]);
     if (variant.length === 0) {
       return res.status(404).json({ message: 'Variant not found' });
     }
-    
+
     await query(
       'UPDATE ProductVariants SET varSKU = ?, varBCode = ?, prodID = ?, varPrice = ? WHERE varID = ?',
       [varSKU, varBCode, prodID, varPrice || 83.54, req.params.id]
     );
-    
+
     res.json({ message: 'Variant updated successfully' });
   } catch (error) {
     console.error('Error updating variant:', error);
@@ -114,6 +127,7 @@ router.put('/:id', async (req, res) => {
   }
 });
 
+// Delete a variant
 router.delete('/:id', async (req, res) => {
   let connection;
   try {
@@ -124,23 +138,19 @@ router.delete('/:id', async (req, res) => {
 
     connection = await pool.getConnection();
     await connection.beginTransaction();
+
     await connection.execute('DELETE FROM Inventory WHERE varID = ?', [req.params.id]);
     await connection.execute('DELETE FROM VariantAttributesValues WHERE varID = ?', [req.params.id]);
-    await connection.execute('DELETE FROM ProductVariants WHERE varID = ?', [req.params.id]);   
+    await connection.execute('DELETE FROM ProductVariants WHERE varID = ?', [req.params.id]);
+
     await connection.commit();
-    
     res.json({ message: 'Variant deleted successfully' });
   } catch (error) {
-    if (connection) {
-      await connection.rollback();
-    }
-    
+    if (connection) await connection.rollback();
     console.error('Error deleting variant:', error);
     res.status(500).json({ error: error.message });
   } finally {
-    if (connection) {
-      connection.release();
-    }
+    if (connection) connection.release();
   }
 });
 
